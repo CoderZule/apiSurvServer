@@ -224,17 +224,21 @@ async function editUser(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Check if email is provided and if it's different from the current one
     if (Email && Email !== existingUser.Email) {
       const emailTaken = await User.findOne({ Email, _id: { $ne: _id } });
       if (emailTaken) {
         return res.status(400).json({ message: 'Email déjà utilisé' });
       }
-      
     }
 
-    if (Password) {
+    // Update password only if a new password is provided
+    if (Password && Password !== existingUser.Password) {
       const hashedPassword = await bcrypt.hash(Password, 10);
       editedUserData.Password = hashedPassword;
+    } else {
+      // If no password is provided, we don't change it
+      delete editedUserData.Password;
     }
 
     const updatedUser = await User.findByIdAndUpdate(_id, editedUserData, { new: true });
@@ -245,6 +249,7 @@ async function editUser(req, res) {
     return res.status(500).json({ message: 'Internal server error' });
   }
 }
+
 
 
 
