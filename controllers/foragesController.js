@@ -14,23 +14,28 @@ const fetchForages = async (req, res) => {
 };
 
   
-  const createForage = async (req, res) => {
-    try {
-      const { Name} = req.body;
-   
-  
-      const newForage = new Forage({
-        Name
-      });
-  
-      await newForage.save();
-  
-      res.status(201).json({ success: true, message: 'Forage added successfully', data: newForage });
-    } catch (error) {
-      console.error('Error adding forage:', error);
-      res.status(500).json({ error: 'Internal server error' });
+const createForage = async (req, res) => {
+  try {
+    const { Name } = req.body;
+
+    const existingForage = await Forage.findOne({ Name });
+    if (existingForage) {
+      return res.status(400).json({ error: 'Le nom de fourrage existe déjà.' });
     }
-  };
+
+    const newForage = new Forage({
+      Name
+    });
+
+    await newForage.save();
+
+    res.status(201).json({ success: true, message: 'Forage ajouté avec succès', data: newForage });
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout du fourrage:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+};
+
   
   async function getForageById(req, res) {
     try {
@@ -50,21 +55,30 @@ const fetchForages = async (req, res) => {
   
   async function editForage(req, res) {
     try {
-      const editedForageData = req.body;
-      const { _id } = editedForageData;
-  
-      const forage= await Forage.findByIdAndUpdate(_id, editedForageData, { new: true });
-  
-      if (!forage) {
-        return res.status(404).json({ message: 'Forage not found' });
+        const editedForageData = req.body;
+        const { _id, Name } = editedForageData;
+
+        // Check if another forage with the same Name exists, excluding the current forage
+        const existingForage = await Forage.findOne({ Name, _id: { $ne: _id } });
+        if (existingForage) {
+          return res.status(400).json({ message: 'Le nom de fourrage est déjà utilisé.' });
       }
-  
-      res.send("Forage updated successfully");
+      
+
+         const forage = await Forage.findByIdAndUpdate(_id, editedForageData, { new: true });
+
+        if (!forage) {
+            return res.status(404).json({ message: 'Forage not found' });
+        }
+
+        res.status(200).send("Forage updated successfully");
     } catch (error) {
-      console.error('Error updating forage:', error);
-      return res.status(500).json({ message: 'Internal server error' });
+        console.error('Error updating forage:', error);
+        return res.status(500).json({ message: 'Internal server error' });
     }
-  }
+}
+
+  
   
 async function deleteForage(req, res) {
     try {

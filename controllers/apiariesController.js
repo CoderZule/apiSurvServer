@@ -73,6 +73,7 @@ async function getApiaryById(req, res) {
   }
   
   
+  
   async function deleteApiary(req, res) {
     try {
       const { apiaryId } = req.params; 

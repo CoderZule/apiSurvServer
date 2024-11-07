@@ -4,11 +4,12 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 function generateRandomString(length) {
-return crypto.randomBytes(length).toString('hex');
+  return crypto.randomBytes(length).toString('hex');
 }
 
 
 async function AdminUser() {
+
 
   const adminEmail = process.env.ADMIN_EMAIL;
 
@@ -19,7 +20,7 @@ async function AdminUser() {
 
       const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
 
-      
+
       const newAdminUser = new User({
         Firstname: 'Mariem',
         Lastname: 'Derbali',
@@ -30,7 +31,7 @@ async function AdminUser() {
         Role: 'Admin'
       });
 
-  
+
       await newAdminUser.save();
       console.log('Admin user seeded successfully.');
     }
@@ -43,12 +44,11 @@ async function AdminUser() {
 const registerUser = async (req, res) => {
   //const { Firstname, Lastname, Phone, Cin, Email, Password, platform } = req.body;
 
-  const { Firstname, Lastname,  Email, Password, platform } = req.body;
- 
+  const { Firstname, Lastname, Email, Password, platform } = req.body;
   // if (!Firstname || !Lastname || !Phone || !Cin || !Email || !Password) {
   //   return res.status(400).json({ message: 'All fields are required' });
   // }
-    if (!Firstname || !Lastname || !Email || !Password) {
+  if (!Firstname || !Lastname || !Email || !Password) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
@@ -59,26 +59,26 @@ const registerUser = async (req, res) => {
   }
 
   try {
-     const existingUser = await User.findOne({ Email });
+    const existingUser = await User.findOne({ Email });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
-     const hashedPassword = await bcrypt.hash(Password, 10);
+    const hashedPassword = await bcrypt.hash(Password, 10);
 
-     const newUser = new User({
+    const newUser = new User({
       Firstname,
       Lastname,
       Email,
-      Password: hashedPassword, 
+      Password: hashedPassword,
       platform,
       Role: 'Apiculteur',
-      FirstTimeLogin: true  
+      FirstTimeLogin: true
     });
 
     await newUser.save();
 
-     const token = jwt.sign({ userId: newUser._id }, jwtSecret, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: newUser._id }, jwtSecret, { expiresIn: '1h' });
 
     const currentUser = {
       Firstname: newUser.Firstname,
@@ -91,7 +91,7 @@ const registerUser = async (req, res) => {
       _id: newUser._id
     };
 
-     res.status(201).json({ token, currentUser });
+    res.status(201).json({ token, currentUser });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -99,7 +99,7 @@ const registerUser = async (req, res) => {
 };
 
 async function loginUser(req, res) {
-  const { Email, Password, platform } = req.body;  
+  const { Email, Password, platform } = req.body;
   const jwtSecret = generateRandomString(32);
 
   if (!jwtSecret) {
@@ -120,7 +120,7 @@ async function loginUser(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    
+
     if (platform === 'mobile' && user.Role === 'Admin') {
       return res.status(403).json({ message: 'Admins cannot log in via the mobile app' });
     } else if (platform === 'web' && user.Role !== 'Admin') {
@@ -151,8 +151,8 @@ async function loginUser(req, res) {
 
 const fetchUsers = async (req, res) => {
   try {
-     const Users = await User.find({ Role: { $ne: 'Apiculteur' } });
-    
+    const Users = await User.find({ Role: { $ne: 'Apiculteur' } });
+
     res.json({ success: true, data: Users });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -167,24 +167,28 @@ async function createUser(req, res) {
     const existingUser = await User.findOne({ Email: userData.Email });
     if (existingUser) {
       console.log('User already exists.');
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: "L'utilisateur existe déjà" });
+    }
+    else {
+      const hashedPassword = await bcrypt.hash(userData.Password, 10);
+
+      const newUser = new User({
+        Firstname: userData.Firstname,
+        Lastname: userData.Lastname,
+        Phone: userData.Phone,
+        Cin: userData.Cin,
+        Email: userData.Email,
+        Password: hashedPassword,
+        Role: userData.Role
+      });
+
+      await newUser.save();
+      console.log('User created successfully.');
+      return res.status(201).json({ message: 'User created successfully', user: newUser });
+
     }
 
-     const hashedPassword = await bcrypt.hash(userData.Password, 10);
- 
-    const newUser = new User({
-      Firstname: userData.Firstname,
-      Lastname: userData.Lastname,
-      Phone: userData.Phone,
-      Cin: userData.Cin,
-      Email: userData.Email,
-      Password: hashedPassword,  
-      Role: userData.Role
-    });
 
-    await newUser.save();
-    console.log('User created successfully.');
-    return res.status(201).json({ message: 'User created successfully', user: newUser });
   } catch (error) {
     console.error('Error creating user:', error);
     return res.status(500).json({ message: 'Internal server error' });
@@ -213,21 +217,29 @@ async function getUserById(req, res) {
 async function editUser(req, res) {
   try {
     const editedUserData = req.body;
-    const { _id, Password } = editedUserData;
+    const { _id, Password, Email } = editedUserData;
+
+    const existingUser = await User.findById(_id);
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (Email && Email !== existingUser.Email) {
+      const emailTaken = await User.findOne({ Email, _id: { $ne: _id } });
+      if (emailTaken) {
+        return res.status(400).json({ message: 'Email déjà utilisé' });
+      }
+      
+    }
 
     if (Password) {
-    
       const hashedPassword = await bcrypt.hash(Password, 10);
       editedUserData.Password = hashedPassword;
     }
 
-    const user = await User.findByIdAndUpdate(_id, editedUserData, { new: true });
+    const updatedUser = await User.findByIdAndUpdate(_id, editedUserData, { new: true });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.send('User updated successfully');
+    res.status(200).json({ message: 'User updated successfully', user: updatedUser });
   } catch (error) {
     console.error('Error updating user:', error);
     return res.status(500).json({ message: 'Internal server error' });
@@ -257,22 +269,22 @@ async function changePasswordFirstLogin(req, res) {
   const { userId, newPassword } = req.body;
 
   try {
-   
+
     const user = await User.findById(userId);
 
-     
+
     if (user) {
       const isCurrentPassword = await bcrypt.compare(newPassword, user.Password);
       if (isCurrentPassword) {
         return res.status(400).json({ success: false, message: "Le nouveau mot de passe ne peut pas être le même que l'ancien." });
       }
 
-     }
+    }
 
-    
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-     
+
     await User.findByIdAndUpdate(userId, { Password: hashedPassword, FirstTimeLogin: false });
 
     res.json({ success: true, message: 'Password changed successfully' });
@@ -286,20 +298,20 @@ async function changeProfilPassword(req, res) {
   const { userId, newPassword, currentPassword } = req.body;
 
   try {
-    
+
     const user = await User.findById(userId);
 
     if (user) {
-       
+
       const isPasswordCorrect = await bcrypt.compare(currentPassword, user.Password);
       if (!isPasswordCorrect) {
         return res.status(400).json({ success: false, message: "Le mot de passe actuel est incorrect." });
       }
 
-      
+
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-       
+
       await User.findByIdAndUpdate(userId, { Password: hashedPassword });
 
       res.json({ success: true, message: 'Password changed successfully' });
