@@ -187,7 +187,6 @@ async function getTopRegions(req, res) {
             return res.status(400).json({ message: 'Product is required' });
         }
 
-         
         const topRegions = await Harvest.aggregate([
             {
                 $match: { Product: product }
@@ -218,7 +217,8 @@ async function getTopRegions(req, res) {
                             unit: '$_id.unit',
                             totalQuantity: '$totalQuantity'
                         }
-                    }
+                    },
+                    totalQuantitySum: { $sum: '$totalQuantity' }  // Sum up quantities for sorting
                 }
             },
             {
@@ -235,21 +235,20 @@ async function getTopRegions(req, res) {
                                 }
                             }
                         }
-                    }
+                    },
+                    totalQuantitySum: 1  // Keep this field for sorting
                 }
             },
-            { $sort: { '_id': 1 } }, // Sort by governorate name
+            { $sort: { totalQuantitySum: -1 } }, // Sort by total quantity in descending order
             { $limit: 5 } // Limit to top 5 regions
         ]);
 
-        console.log('Top regions data:', topRegions);  
+        console.log('Top regions data:', topRegions);
 
-        
         if (topRegions.length === 0) {
             return res.status(404).json({ success: false, message: 'No regions found for the specified product.' });
         }
 
-        
         const comparison = topRegions.map(region => ({
             governorate: region._id,
             quantitiesByUnit: region.quantitiesByUnit
@@ -261,6 +260,7 @@ async function getTopRegions(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 }
+
 
 
 
